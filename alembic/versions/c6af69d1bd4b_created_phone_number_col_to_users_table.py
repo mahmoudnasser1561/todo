@@ -18,11 +18,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    """Upgrade schema."""
-    pass
+def upgrade():
+    op.add_column('users', sa.Column('phone_number', sa.String(), nullable=True))
 
-
-def downgrade() -> None:
-    """Downgrade schema."""
-    pass
+def downgrade():
+    op.drop_column('users', 'phone_number')
