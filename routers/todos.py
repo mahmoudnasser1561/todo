@@ -41,7 +41,7 @@ async def read_todo(db: db_dependency, user:user_dependency, todo_id: int = Path
         .filter(Todos.owner_id == user.get('id')).first()
     if todo_model is not None:
         return todo_model
-    raise HTTPException(session_code=404, detail="todo not found.")
+    raise HTTPException(status_code=404, detail="todo not found.")
 
 @router.post("/todo", status_code=status.HTTP_201_CREATED)
 async def create_todo(db: db_dependency, user: user_dependency, 
