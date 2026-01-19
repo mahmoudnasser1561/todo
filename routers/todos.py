@@ -5,6 +5,7 @@ from database import SessionLocal
 from starlette import status
 from pydantic import BaseModel, Field
 from models import Todos
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -18,6 +19,7 @@ def get_db():
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict, Depends(get_current_user)]
 
 class TodoRequest(BaseModel):
     title: str = Field(min_length=3)
@@ -26,19 +28,27 @@ class TodoRequest(BaseModel):
     complete: bool
 
 @router.get("/")
-async def read_all(db: Annotated[Session, Depends(get_db)]):
-    return db.query(Todos).all()
+async def read_all(db: db_dependency, user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    return db.query(Todos).filter(Todos.owner_id == user.get('id')).all()
 
 @router.get("/todo/{todo_id}", status_code=status.HTTP_200_OK)
-async def read_todo(db: db_dependency, todo_id: int = Path(gt=0)):
-    todo_model = db.query(Todos).filter(Todos.id == todo_id).first()
+async def read_todo(db: db_dependency, user:user_dependency, todo_id: int = Path(gt=0)):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    todo_model = db.query(Todos).filter(Todos.id == todo_id)\
+        .filter(Todos.owner_id == user.get('id')).first()
     if todo_model is not None:
         return todo_model
     raise HTTPException(session_code=404, detail="todo not found.")
 
 @router.post("/todo", status_code=status.HTTP_201_CREATED)
-async def create_todo(db: db_dependency, todo_request: TodoRequest):
-    todo_model = Todos(**todo_request.model_dump())
+async def create_todo(db: db_dependency, user: user_dependency, 
+                      todo_request: TodoRequest):
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    todo_model = Todos(**todo_request.model_dump(), owner_id=user.get('id'))
 
     db.add(todo_model)
     db.commit()
